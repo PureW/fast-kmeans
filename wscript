@@ -4,14 +4,17 @@
 
 # the following two variables are used by the target "waf dist"
 VERSION = '0.0.1'
-APPNAME = 'fastkmeans'
+LIBNAME = 'fastkmeans'
+APPNAME = 'fmk'
 
 INCLUDES = [
     'include',
 ]
 SOURCES = [
-    'src/fastkmeans/main.c',
     'src/fastkmeans/fastkmeans.c',
+]
+SOURCES_APP = [
+    'src/fastkmeans/main.c',
 ]
 
 SHLIBS = [
@@ -77,21 +80,30 @@ def build(bld):
     cflags = CFLAGS['general'] + CFLAGS[bld.variant]
     defines = DEFINES['general'] + DEFINES[bld.variant]
 
-    bld.program(
+    bld.stlib(
         source=SOURCES,
         includes=INCLUDES,
-        target=APPNAME,
+        target=LIBNAME,
         use=USES,
         lib=SHLIBS,
         defines=defines,
-        # libpath=,
         stlib=STLIBS,
-        # stlibpath=,
         cflags=cflags,
     )
 
+    USES_APP = USES + [LIBNAME]
+    bld.program(
+        source=SOURCES_APP,
+        includes=INCLUDES,
+        target=APPNAME,
+        use=USES_APP,
+        lib=SHLIBS,
+        defines=defines,
+        stlib=STLIBS,
+        cflags=cflags,
+    )
 
-
+# Setup build/debug-versions
 from waflib.Build import BuildContext, CleanContext
 from waflib.Build import InstallContext, UninstallContext
 

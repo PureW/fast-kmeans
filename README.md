@@ -10,3 +10,5 @@ Compile using:
 make
 ```
 This builds *build/release/fastkmeans* which is a simple command-line parser around the fastkmeans-algorithm.
+
+To include fastkmeans in your own program, include *include/fastkmeans* and link *build/release/libfastkmeans.a*.
