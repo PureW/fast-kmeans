@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fastkmeans.h"
+#include "fastkmeans/fastkmeans.h"
 
 
 typedef struct {
@@ -33,6 +33,9 @@ int main(int argc, char** argv) {
     } else {
         // Init data
         FILE* fin = open_stream(args.infile, "r", stdin);
+        if (!fin) {
+            return 1;
+        }
         gsl_matrix* points = fkm_matrix_load(fin);
         if (fin != stdin) {
             fclose(fin);
@@ -43,6 +46,9 @@ int main(int argc, char** argv) {
         fkm_kmeans(points, clusters, args.max_iter);
 
         FILE* fout = open_stream(args.outfile, "w", stdout);
+        if (!fout) {
+            return 1;
+        }
         fkm_matrix_save(fout, clusters);
         // Cleanup
         if (fout != stdout) {
@@ -75,8 +81,8 @@ pargs parse_args(int argc, char** argv) {
         args.err = 99;
         return args;
     }
-    if (argc <= 3) {
-        printf("ERROR: Not enough arguments\n");
+    if (argc <= 3 || argc > 5) {
+        printf("ERROR: Wrong number of arguments\n");
         display_help(argc, argv);
         args.err = 99;
         return args;
@@ -85,7 +91,7 @@ pargs parse_args(int argc, char** argv) {
     args.infile = argv[argc-2];
     args.outfile = argv[argc-1];
     if (argc == 5) {
-        args.max_iter = atoi(argv[2]);
+        args.max_iter = atoi(argv[1]);
     } else {
         args.max_iter = 10;
     }
