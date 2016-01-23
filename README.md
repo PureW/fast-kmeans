@@ -1,6 +1,13 @@
 # fast-kmeans
 Simple, to the point, fast k-means implementation making use of multi-core cpu's
 
+## Dependencies
+
+ * C11
+ * pthreads
+ * GSL: Gnu Scientific Library https://www.gnu.org/software/gsl/
+ * TODO
+
 ## Compile
 
 Compile using:

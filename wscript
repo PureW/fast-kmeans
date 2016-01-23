@@ -35,6 +35,7 @@ BUILD_VERSIONS = [str_release, str_debug]
 CFLAGS = {
     str_release: [
         '-O2',
+        # '-pg',
     ],
     str_debug: [
         '-g',
@@ -52,6 +53,7 @@ CFLAGS = {
 DEFINES = {
     str_release: [
         'ISDEBUG=0',
+        'HAVE_INLINE',
     ],
     str_debug: [
         'ISDEBUG=1',
@@ -89,6 +91,7 @@ def build(bld):
         defines=defines,
         stlib=STLIBS,
         cflags=cflags,
+        linkflags=cflags,
     )
 
     USES_APP = USES + [LIBNAME]
@@ -101,6 +104,7 @@ def build(bld):
         defines=defines,
         stlib=STLIBS,
         cflags=cflags,
+        linkflags=cflags,
     )
 
 # Setup build/debug-versions
