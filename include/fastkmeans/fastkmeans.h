@@ -22,25 +22,26 @@ int fkm_matrix_save(FILE* fout, gsl_matrix* mat);
 #define WHERESTR  "[%s:%d]: "
 #define WHEREARG  __FILE__, __LINE__
 #define DEBUGPRINT2(...)       fprintf(stderr, __VA_ARGS__)
-#define LOGFMT(_fmt, ...)  DEBUGPRINT2(WHERESTR _fmt "\n", WHEREARG, __VA_ARGS__)
-#define LOG(_s) DEBUGPRINT2(WHERESTR "%s\n", WHEREARG, _s)
-#define LOGTYPE(_tp, _s)  DEBUGPRINT2(WHERESTR "%s: %s" "\n", WHEREARG, _tp, _s)
-#define LOGTYPEFMT(_tp, _fmt, ...)  DEBUGPRINT2(WHERESTR "%s: " _fmt "\n", WHEREARG, _tp, __VA_ARGS__)
+
+#define FKM_LOGFMT(_fmt, ...)  DEBUGPRINT2(WHERESTR _fmt "\n", WHEREARG, __VA_ARGS__)
+#define FKM_LOG(_s) DEBUGPRINT2(WHERESTR "%s\n", WHEREARG, _s)
+#define FKM_LOGTYPE(_tp, _s)  DEBUGPRINT2(WHERESTR "%s: %s" "\n", WHEREARG, _tp, _s)
+#define FKM_LOGTYPEFMT(_tp, _fmt, ...)  DEBUGPRINT2(WHERESTR "%s: " _fmt "\n", WHEREARG, _tp, __VA_ARGS__)
 
 #if (ISDEBUG + 0)
-    #define DEBUGFMT(_fmt, ...)  LOGTYPEFMT("DEBUG", _fmt, __VA_ARGS__)
-    #define DEBUG(_s)  LOGTYPE("DEBUG", _s)
+    #define FKM_DEBUGFMT(_fmt, ...)  FKM_LOGTYPEFMT("DEBUG", _fmt, __VA_ARGS__)
+    #define FKM_DEBUG(_s)  FKM_LOGTYPE("DEBUG", _s)
 #else
-    #define DEBUGFMT(...)
-    #define DEBUG(...)
+    #define FKM_DEBUGFMT(...)
+    #define FKM_DEBUG(...)
 #endif
-#define INFOFMT(_fmt, ...)   LOGTYPEFMT("INFO", _fmt, __VA_ARGS__)
-#define WARNFMT(_fmt, ...)   LOGTYPEFMT("WARN", _fmt, __VA_ARGS__)
-#define ERRORFMT(_fmt, ...)  LOGTYPEFMT("ERROR", _fmt, __VA_ARGS__)
+#define FKM_INFOFMT(_fmt, ...)   FKM_LOGTYPEFMT("INFO", _fmt, __VA_ARGS__)
+#define FKM_WARNFMT(_fmt, ...)   FKM_LOGTYPEFMT("WARN", _fmt, __VA_ARGS__)
+#define FKM_ERRORFMT(_fmt, ...)  FKM_LOGTYPEFMT("ERROR", _fmt, __VA_ARGS__)
 
-#define INFO(_s)   LOGTYPE("INFO", _s)
-#define WARN(_s)   LOGTYPE("WARN", _s)
-#define ERROR(_s)  LOGTYPE("ERROR", _s)
+#define FKM_INFO(_s)   FKM_LOGTYPE("INFO", _s)
+#define FKM_WARN(_s)   FKM_LOGTYPE("WARN", _s)
+#define FKM_ERROR(_s)  FKM_LOGTYPE("ERROR", _s)
 
 
 #endif
