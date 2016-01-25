@@ -16,6 +16,11 @@ Compile using:
 ./configure.sh
 make
 ```
-This builds *build/release/fastkmeans* which is a simple command-line parser around the fastkmeans-algorithm.
+This builds *build/release/libfastkmeans.a* which is the static library and  *build/release/fastkmeans* which is a simple command-line parser around the fastkmeans-library.
 
 To include fastkmeans in your own program, include *include/fastkmeans* and link *build/release/libfastkmeans.a*.
+
+## License
+
+The MIT-license, see LICENSE.
+

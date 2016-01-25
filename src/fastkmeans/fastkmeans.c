@@ -23,6 +23,12 @@ typedef enum {
     ALLOCATION_ERROR,
 } fkm_error;
 
+typedef enum {
+    WAIT,
+    RELEASED,
+    EXIT,
+} barrier_status;
+
 typedef struct {
     const gsl_matrix* points;
     gsl_matrix* clusters;
@@ -33,24 +39,35 @@ typedef struct {
 } targs;
 
 typedef struct {
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
+    int count;
+    int goal;
+    barrier_status status;
+} tbarrier;
+
+typedef struct {
     targs* args;
     size_t thread_id;
     pthread_t pthread_id;
     size_t num_threads;
+    tbarrier* bar_start;
+    tbarrier* bar_finish;
 } thread_meta;
 
 typedef struct {
     thread_meta* threads;
     const size_t num_threads;
-    int is_inited;
-    pthread_barrier_t* barrier;
+    tbarrier bar_start;
+    tbarrier bar_finish;
 } thread_pool;
 
 int fkm_clusters_assignment(const thread_pool* tpool);
-
 double fkm_clusters_update(const targs* args);
-
 double fkm_matrix_diff(gsl_matrix* a, gsl_matrix* b);
+int fkm_threads_init(thread_pool* tpool);
+int fkm_threads_join(thread_pool* tpool);
+int barrier_finish(tbarrier* bar);
 
 int fkm_kmeans(const gsl_matrix* points, gsl_matrix* clusters,
                size_t max_iter, int num_threads) {
@@ -75,15 +92,26 @@ int fkm_kmeans(const gsl_matrix* points, gsl_matrix* clusters,
     thread_pool tpool = {
         .num_threads=num_threads,
         .threads=tmeta,
-        .is_inited=0,
-        .barrier=PTHREAD_BARRIER_INITIALIZER(num_threads)
+        .bar_start={
+            .lock=PTHREAD_MUTEX_INITIALIZER,
+            .cond=PTHREAD_COND_INITIALIZER,
+            .goal=num_threads+1,
+        },
+        .bar_finish={
+            .lock=PTHREAD_MUTEX_INITIALIZER,
+            .cond=PTHREAD_COND_INITIALIZER,
+            .goal=num_threads+1,
+        },
     };
     for (int i=0; i<num_threads; ++i) {
         tmeta[i].args = &args;
         tmeta[i].pthread_id = 0;
         tmeta[i].thread_id = i;
         tmeta[i].num_threads = num_threads;
+        tmeta[i].bar_start=&tpool.bar_start;
+        tmeta[i].bar_finish=&tpool.bar_finish;
     }
+    fkm_threads_init(&tpool);
     gsl_rng* rng = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(rng, time(NULL));
 
@@ -106,8 +134,8 @@ int fkm_kmeans(const gsl_matrix* points, gsl_matrix* clusters,
     }
 
     for (size_t it=0; it<max_iter; ++it) {
-        DEBUGFMT("iter %lu num_points %lu dim %lu, k %lu", 
-                it, args.num_points, args.dim, args.k);
+        DEBUGFMT("iter %lu num_points %lu dim %lu, k %lu num_threads %i", 
+                it, args.num_points, args.dim, args.k, num_threads);
         /*for (size_t p=0; p<num_points;++p) {*/
             /*printf("%lu:%u ", p, owner_of[p]);*/
         /*}*/
@@ -120,16 +148,90 @@ int fkm_kmeans(const gsl_matrix* points, gsl_matrix* clusters,
             break;
         }
     }
+    barrier_finish(&tpool.bar_start);
+    int err = fkm_threads_join(&tpool);
     return 0;
 }
 
+int barrier_wait(tbarrier* bar) {
+    pthread_mutex_lock(&bar->lock);
+    DEBUGFMT("barrier_wait: count:%i goal:%i status:%i", bar->count,
+                                                      bar->goal,
+                                                      bar->status);
+    assert(bar->goal > 0);
+    bar->count += 1;
+    if (bar->goal == bar->count) {
+        bar->status = RELEASED;
+        bar->count = 0;
+        DEBUG("Goal reached in barrier, broadcasting release");
+        pthread_cond_broadcast(&bar->cond);
+        pthread_mutex_unlock(&bar->lock);
+        return 0;
+    }
+    pthread_mutex_unlock(&bar->lock);
+    for (;;) {
+        pthread_cond_wait(&bar->cond, &bar->lock);
+        if (bar->status == RELEASED) {
+            DEBUG("Barrier released");
+            pthread_mutex_unlock(&bar->lock);
+            return 0;
+        } else if (bar->status == EXIT) {
+            DEBUG("Barrier signals FINISHED");
+            pthread_mutex_unlock(&bar->lock);
+            return 1;
+        } else {
+            // Spurious wakeup
+            DEBUG("Spurious wakeup");
+        }
+    }
+}
 
-void* fkm_clusters_assignment_single(void* _data) {
-    thread_meta* tmeta = _data;
+int barrier_finish(tbarrier* bar) {
+    int err = pthread_mutex_lock(&bar->lock);
+    if (err) {
+        ERROR("Could not acquire mutex");
+        return 1;
+    }
+    bar->status = EXIT;
+    err = pthread_mutex_unlock(&bar->lock);
+    if (err) {
+        ERROR("Could not release mutex");
+        return 1;
+    }
+    err = pthread_cond_broadcast(&bar->cond);
+    if (err) {
+        ERROR("Could not broadcast cond-variable");
+        return 1;
+    }
+    return 0;
+}
+int fkm_clusters_assignment_single(targs* args,
+                                     size_t offset,
+                                     size_t stride);
+
+void* fkm_thread_manage(void* data) {
+    thread_meta* tmeta = data;
     targs* args = tmeta->args;
 
-    size_t offset = tmeta->thread_id;
-    size_t stride = tmeta->num_threads;
+    int stop=0;
+    for (;;) {
+        stop = barrier_wait(tmeta->bar_start);
+        if (stop) {
+            return 0;
+        }
+        fkm_clusters_assignment_single(args, 
+                                       tmeta->thread_id, 
+                                       tmeta->num_threads);
+        stop = barrier_wait(tmeta->bar_finish);
+        if (stop) {
+            return 0;
+        }
+    }
+}
+
+int fkm_clusters_assignment_single(targs* args,
+                                     size_t offset,
+                                     size_t stride) {
     for (size_t p=offset; p<args->num_points; p+=stride) {
         double min_err = 1e308;
         /*DEBUGFMT("p:%lu", p);*/
@@ -144,10 +246,6 @@ void* fkm_clusters_assignment_single(void* _data) {
             if (err < min_err) {
                 min_err = err;
                 /*DEBUGFMT("NEW min_err m:%lu, err:%f", m, err);*/
-                /*if (m != owner_of[p]) {*/
-                    /*DEBUGFMT("p:%lu changed center to %lu from %u",*/
-                             /*p, m, owner_of[p]);*/
-                /*}*/
                 args->owner_of[p] = m;
             }
         }
@@ -155,28 +253,55 @@ void* fkm_clusters_assignment_single(void* _data) {
     return 0;
 }
 
-int fkm_clusters_assignment(const thread_pool* tpool) {
+int fkm_threads_init(thread_pool* tpool) {
 
-    if (!tpool->is_inited) {
     for (size_t thr=0; thr<tpool->num_threads;++thr) {
         thread_meta* tdata = &tpool->threads[thr];
         int err = pthread_create(&tdata->pthread_id,
                                  NULL, 
-                                 &fkm_clusters_assignment_single,
+                                 &fkm_thread_manage,
                                  tdata);
         if (err) {
             ERRORFMT("pthread_create-error %i", err);
+            return 1;
         }
     }
+    return 0;
+}
+int fkm_threads_join(thread_pool* tpool) {
     for (size_t thr=0; thr<tpool->num_threads;++thr) {
         thread_meta* tdata = &tpool->threads[thr];
         int err = pthread_join(tdata->pthread_id, NULL);
         if (err) {
             ERRORFMT("pthread_join-error %i", err);
         }
+        return 1;
     }
     return 0;
 }
+
+int fkm_clusters_assignment(const thread_pool* tpool) {
+    tbarrier* bar_start = tpool->threads[0].bar_start;
+    DEBUGFMT("bar_start: count:%i goal:%i status:%i", bar_start->count,
+                                                      bar_start->goal,
+                                                      bar_start->status);
+    int err = barrier_wait(bar_start);
+    if (err) {
+        ERROR("barrier_wait failed");
+        return 1;
+    }
+    tbarrier* bar_finish = tpool->threads[0].bar_finish;
+    DEBUGFMT("bar_finish: count:%i goal:%i status:%i", bar_finish->count,
+                                                      bar_finish->goal,
+                                                      bar_finish->status);
+    err = barrier_wait(tpool->threads[0].bar_finish);
+    if (err) {
+        ERROR("barrier_wait failed");
+        return 1;
+    }
+    return 0;
+}
+
 /**
  * Update clusters.
  *

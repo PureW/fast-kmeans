@@ -27,12 +27,17 @@ int fkm_matrix_save(FILE* fout, gsl_matrix* mat);
 #define LOGTYPE(_tp, _s)  DEBUGPRINT2(WHERESTR "%s: %s" "\n", WHEREARG, _tp, _s)
 #define LOGTYPEFMT(_tp, _fmt, ...)  DEBUGPRINT2(WHERESTR "%s: " _fmt "\n", WHEREARG, _tp, __VA_ARGS__)
 
-#define DEBUGFMT(_fmt, ...)  LOGTYPEFMT("DEBUG", _fmt, __VA_ARGS__)
+#if (ISDEBUG + 0)
+    #define DEBUGFMT(_fmt, ...)  LOGTYPEFMT("DEBUG", _fmt, __VA_ARGS__)
+    #define DEBUG(_s)  LOGTYPE("DEBUG", _s)
+#else
+    #define DEBUGFMT(...)
+    #define DEBUG(...)
+#endif
 #define INFOFMT(_fmt, ...)   LOGTYPEFMT("INFO", _fmt, __VA_ARGS__)
 #define WARNFMT(_fmt, ...)   LOGTYPEFMT("WARN", _fmt, __VA_ARGS__)
 #define ERRORFMT(_fmt, ...)  LOGTYPEFMT("ERROR", _fmt, __VA_ARGS__)
 
-#define DEBUG(_s)  LOGTYPE("DEBUG", _s)
 #define INFO(_s)   LOGTYPE("INFO", _s)
 #define WARN(_s)   LOGTYPE("WARN", _s)
 #define ERROR(_s)  LOGTYPE("ERROR", _s)
