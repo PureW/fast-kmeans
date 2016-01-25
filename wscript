@@ -14,7 +14,7 @@ SOURCES = [
     'src/fastkmeans/fastkmeans.c',
 ]
 SOURCES_APP = [
-    'src/fastkmeans/main.c',
+    'src/main.c',
 ]
 
 SHLIBS = [
