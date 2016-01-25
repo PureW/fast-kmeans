@@ -14,7 +14,7 @@
 #include <gsl/gsl_matrix.h>
 
 int fkm_kmeans(const gsl_matrix* points, gsl_matrix* clusters,
-               size_t max_iter);
+               size_t max_iter, int num_threads);
 
 gsl_matrix* fkm_matrix_load(FILE* fout);
 int fkm_matrix_save(FILE* fout, gsl_matrix* mat);

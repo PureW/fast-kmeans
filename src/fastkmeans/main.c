@@ -19,6 +19,7 @@ typedef struct {
     char* outfile;
     unsigned k;
     unsigned max_iter;
+    int num_threads;
     int err;
 } pargs;
 
@@ -43,7 +44,7 @@ int main(int argc, char** argv) {
         gsl_matrix* clusters = gsl_matrix_alloc(args.k, points->size2);
 
         // Calculate
-        fkm_kmeans(points, clusters, args.max_iter);
+        fkm_kmeans(points, clusters, args.max_iter, args.num_threads);
 
         FILE* fout = open_stream(args.outfile, "w", stdout);
         if (!fout) {
@@ -81,8 +82,8 @@ pargs parse_args(int argc, char** argv) {
         args.err = 99;
         return args;
     }
-    if (argc <= 3 || argc > 5) {
-        printf("ERROR: Wrong number of arguments\n");
+    if (argc <= 3 || argc > 6) {
+        printf("ERROR: Wrong number of arguments (%i)\n", argc);
         display_help(argc, argv);
         args.err = 99;
         return args;
@@ -90,10 +91,15 @@ pargs parse_args(int argc, char** argv) {
     args.k = atoi(argv[argc-3]);
     args.infile = argv[argc-2];
     args.outfile = argv[argc-1];
-    if (argc == 5) {
-        args.max_iter = atoi(argv[1]);
+    if (argc >= 5) {
+        args.max_iter = atoi(argv[argc-4]);
     } else {
         args.max_iter = 10;
+    }
+    if (argc >= 6) {
+        args.num_threads = atoi(argv[argc-5]);
+    } else {
+        args.num_threads = atoi(argv[argc-5]);
     }
     return args;
 }

@@ -35,7 +35,7 @@ BUILD_VERSIONS = [str_release, str_debug]
 CFLAGS = {
     str_release: [
         '-O2',
-        # '-pg',
+        '-pg',
     ],
     str_debug: [
         '-g',
